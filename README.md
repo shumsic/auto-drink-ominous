@@ -1,40 +1,46 @@
-# Auto Drink Ominous
+# Auto-Drink Ominous Bottles
 
-A tiny Meteor Client addon that automatically drinks an Ominous Bottle when a raid ends,
-so you can chain raids at a raid farm without manual input.
+Client-side Fabric mod that automatically drinks an **Ominous Bottle** when a raid ends.
 
-## Features
+## How it works (Boss Bar trigger)
 
-- Detects raid victory via server sound + bossbar.
-- Finds an Ominous Bottle in your hotbar.
-- Optionally pulls a bottle from inventory into the hotbar.
-- Prioritization mode: Leftmost or Highest Level.
-- Auto-disable: never, after time, or after number of consumptions.
-- Restores your previous hotbar slot after drinking.
+This mod watches the **raid boss bar** at the top of the screen.
 
-## Requirements
+- When the boss bar changes to **Raid - Victory**, the mod triggers once.
+- It then attempts to drink **one** Ominous Bottle.
+- It includes safeguards to prevent repeatedly triggering from brief boss bar flickers.
 
-- Minecraft 1.21.11
-- Fabric Loader
-- Fabric API
-- Meteor Client (matching 1.21.11 build)
-- Java 21
+## Keybind (Enable / Disable)
 
-## Building
+- Go to: **Options → Controls → Key Binds**
+- Find: **Auto Drink Ominous Bottles**
+- Default key: **R**
 
-This project assumes you have Gradle (8.14.3+ recommended) installed on your system.
+Toggling shows a small on-screen message:
+- `Auto Drink Ominous Bottles: Enabled`
+- `Auto Drink Ominous Bottles: Disabled`
 
-```bash
-# in the project root
-gradle clean build
-```
+## Bottle selection behavior
 
-The built jar will be in:
+When a raid ends, the mod looks for an Ominous Bottle to drink:
 
-```text
-build/libs/AutoDrinkOminous-x.x.x.jar
-```
+1. **Hotbar scan**
+   - It scans the hotbar and selects the **highest Omen level** bottle available.
+2. **Pull from inventory (if none in hotbar)**
+   - If no bottles are found in the hotbar, it searches the main inventory.
+   - If found, it swaps one into the hotbar and drinks it.
 
-## License
+If no Ominous Bottles exist anywhere:
+- It prints a message indicating none were found.
 
-MIT. See `LICENSE` for details.
+## Consumption behavior
+
+- The mod switches to the chosen bottle slot.
+- It holds “use” long enough for the bottle to be consumed.
+- It releases “use” in a way that prevents accidental double-consumption (even under lag).
+- It then swaps back to your previous selected hotbar slot.
+
+## Notes / Limitations
+
+- This is **client-side only**. It does not require server-side installation.
+- The trigger is based on the **visible boss bar text**, so you must have raid boss bars enabled in your HUD.

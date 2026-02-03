@@ -5,4 +5,5 @@ pluginManagement {
     mavenCentral()
   }
 }
-rootProject.name = 'AutoDrinkOminous'
+
+rootProject.name = "AutoDrinkOminousBottles"

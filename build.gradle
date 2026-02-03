@@ -1,39 +1,38 @@
 plugins {
-    id 'fabric-loom' version '1.11.8'
+    id 'fabric-loom' version '1.13.3'
     id 'maven-publish'
 }
 
-group = 'com.shumsic.autodrinkominous'
-version = '2.0.2'
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
 
 repositories {
     mavenCentral()
     maven { url = 'https://maven.fabricmc.net/' }
-    maven { url = 'https://maven.terraformersmc.com/' }
-    maven { url = 'https://maven.meteordev.org/releases' }
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings "net.fabricmc:yarn:${yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
-    modImplementation "meteordevelopment:meteor-client:${meteor_version}"
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Only the Fabric API modules this mod actually uses
+    modImplementation platform("net.fabricmc.fabric-api:fabric-api-bom:${project.fabric_api_version}")
+    modImplementation "net.fabricmc.fabric-api:fabric-key-binding-api-v1"
+    modImplementation "net.fabricmc.fabric-api:fabric-lifecycle-events-v1"
 }
 
-loom { splitEnvironmentSourceSets() }
-
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(21) }
-    withSourcesJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = "UTF-8"
     options.release = 21
-}
-
-publishing {
-    publications { mavenJava(MavenPublication) { from components.java } }
-    repositories { mavenLocal() }
+    options.encoding = "UTF-8"
 }
