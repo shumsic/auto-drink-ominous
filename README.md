@@ -14,10 +14,10 @@ so you can chain raids at a raid farm without manual input.
 
 ## Requirements
 
-- Minecraft 1.21.10
+- Minecraft 1.21.11
 - Fabric Loader
 - Fabric API
-- Meteor Client (matching 1.21.10 build)
+- Meteor Client (matching 1.21.11 build)
 - Java 21
 
 ## Building
@@ -32,7 +32,7 @@ gradle clean build
 The built jar will be in:
 
 ```text
-build/libs/AutoDrinkOminous-1.0.0.jar
+build/libs/AutoDrinkOminous-x.x.x.jar
 ```
 
 ## License
