@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.13.3'
+    id 'net.fabricmc.fabric-loom' version '1.16.3'
     id 'maven-publish'
 }
 
@@ -17,22 +17,25 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-    // Only the Fabric API modules this mod actually uses
-    modImplementation platform("net.fabricmc.fabric-api:fabric-api-bom:${project.fabric_api_version}")
-    modImplementation "net.fabricmc.fabric-api:fabric-key-binding-api-v1"
-    modImplementation "net.fabricmc.fabric-api:fabric-lifecycle-events-v1"
+    testImplementation platform("org.junit:junit-bom:5.14.1")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 21
+    options.release = 25
     options.encoding = "UTF-8"
+}
+
+test {
+    useJUnitPlatform()
 }
