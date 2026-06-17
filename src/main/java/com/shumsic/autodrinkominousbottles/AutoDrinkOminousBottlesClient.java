@@ -1,21 +1,21 @@
 package com.shumsic.autodrinkominousbottles;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.BossBarHud;
-import net.minecraft.client.gui.hud.ClientBossBar;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.OminousBottleAmplifierComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.BossHealthOverlay;
+import net.minecraft.client.gui.components.LerpingBossEvent;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.OminousBottleAmplifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.lang.reflect.Field;
@@ -48,18 +48,18 @@ public class AutoDrinkOminousBottlesClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        KeyBinding toggle = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.auto_drink_ominous_bottles.toggle",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_R,
-            KeyBinding.Category.MISC
+            KeyMapping.Category.MISC
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (toggle.wasPressed()) {
+            while (toggle.consumeClick()) {
                 enabled = !enabled;
                 if (client.player != null) {
-                    client.player.sendMessage(Text.literal("Auto-Drink Ominous Bottles: " + (enabled ? "Enabled" : "Disabled")), true);
+                    client.player.sendOverlayMessage(Component.literal("Auto-Drink Ominous Bottles: " + (enabled ? "Enabled" : "Disabled")));
                 }
                 firedThisVictory = false;
                 victoryVisibleLastTick = false;
@@ -70,7 +70,7 @@ public class AutoDrinkOminousBottlesClient implements ClientModInitializer {
             }
 
             if (!enabled) return;
-            if (client.player == null || client.world == null || client.interactionManager == null) return;
+            if (client.player == null || client.level == null || client.gameMode == null) return;
 
             if (triggerLockTicks > 0) triggerLockTicks--;
 
@@ -92,8 +92,8 @@ victoryVisibleLastTick = victoryNow;
 
             // Maintain hold-to-use and swap-back
             if (useWasForced) {
-                if (ticksToReleaseUse <= 0 || !client.player.isUsingItem() || (client.player.isUsingItem() && client.player.getItemUseTimeLeft() <= 1)) {
-                    client.options.useKey.setPressed(false);
+                if (ticksToReleaseUse <= 0 || !client.player.isUsingItem() || (client.player.isUsingItem() && client.player.getUseItemRemainingTicks() <= 1)) {
+                    client.options.keyUse.setDown(false);
                     useWasForced = false;
                     ticksToSwapBack = SWAP_BACK_DELAY_TICKS;
                 } else {
@@ -103,8 +103,8 @@ victoryVisibleLastTick = victoryNow;
                 if (ticksToSwapBack == 0) {
                     if (prevHotbarSlot >= 0) {
                         client.player.getInventory().setSelectedSlot(prevHotbarSlot);
-                        if (client.getNetworkHandler() != null) {
-                            client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(prevHotbarSlot));
+                        if (client.getConnection() != null) {
+                            client.getConnection().send(new ServerboundSetCarriedItemPacket(prevHotbarSlot));
                         }
                     }
                     prevHotbarSlot = -1;
@@ -116,9 +116,9 @@ victoryVisibleLastTick = victoryNow;
         });
     }
 
-    private boolean isRaidVictoryBarVisible(MinecraftClient client) {
+    private boolean isRaidVictoryBarVisible(Minecraft client) {
     try {
-        BossBarHud hud = client.inGameHud.getBossBarHud();
+        BossHealthOverlay hud = client.gui.getBossOverlay();
         boolean sawMap = false;
 
         for (Field f : hud.getClass().getDeclaredFields()) {
@@ -128,8 +128,8 @@ victoryVisibleLastTick = victoryNow;
 
             sawMap = true;
             for (Object o : m.values()) {
-                if (o instanceof ClientBossBar bar) {
-                    if (isVictoryText(bar.getName())) return true;
+                if (o instanceof LerpingBossEvent bar) {
+                    if (RaidMessageDetector.isRaidVictory(bar.getName())) return true;
                 }
             }
         }
@@ -137,19 +137,13 @@ victoryVisibleLastTick = victoryNow;
         if (sawMap) return false;
     } catch (Throwable ignored) { }
     return false;
-}
-
-private boolean isVictoryText(Text t) {
-        if (t == null) return false;
-        String s = t.getString().toLowerCase();
-        return s.contains("raid") && s.contains("victory");
     }
 
-    private void tryDrink(MinecraftClient client) {
+    private void tryDrink(Minecraft client) {
         firedThisVictory = true;
         triggerLockTicks = 60; // ~3 seconds lock
 
-        long now = client.world.getTime();
+        long now = client.level.getGameTime();
         if (now - lastTriggerTick < COOLDOWN_TICKS) return;
         lastTriggerTick = now;
 
@@ -162,11 +156,11 @@ private boolean isVictoryText(Text t) {
                 if (targetHotbar == -1) targetHotbar = (client.player.getInventory().getSelectedSlot() + 1) % 9;
 
                 try {
-                    client.interactionManager.clickSlot(
-                        client.player.currentScreenHandler.syncId,
+                    client.gameMode.handleContainerInput(
+                        client.player.containerMenu.containerId,
                         invSlotId,
                         targetHotbar,
-                        SlotActionType.SWAP,
+                        ContainerInput.SWAP,
                         client.player
                     );
                     hotbarSlot = targetHotbar;
@@ -187,20 +181,20 @@ private boolean isVictoryText(Text t) {
 
         prevHotbarSlot = client.player.getInventory().getSelectedSlot();
         client.player.getInventory().setSelectedSlot(hotbarSlot);
-        if (client.getNetworkHandler() != null) {
-            client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(hotbarSlot));
+        if (client.getConnection() != null) {
+            client.getConnection().send(new ServerboundSetCarriedItemPacket(hotbarSlot));
         }
 
-        client.interactionManager.interactItem(client.player, Hand.MAIN_HAND);
-        client.options.useKey.setPressed(true);
+        client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+        client.options.keyUse.setDown(true);
         useWasForced = true;
         ticksToReleaseUse = HOLD_USE_TICKS;
     }
 
-    private int selectBottleHotbarSlot(MinecraftClient client) {
+    private int selectBottleHotbarSlot(Minecraft client) {
         if (!PRIORITIZE_HIGHEST_LEVEL) {
             for (int i = 0; i < 9; i++) {
-                ItemStack st = client.player.getInventory().getStack(i);
+                ItemStack st = client.player.getInventory().getItem(i);
                 if (isOminousBottle(st)) return i;
             }
             return -1;
@@ -209,7 +203,7 @@ private boolean isVictoryText(Text t) {
         int bestSlot = -1;
         int bestLevel = -1;
         for (int i = 0; i < 9; i++) {
-            ItemStack st = client.player.getInventory().getStack(i);
+            ItemStack st = client.player.getInventory().getItem(i);
             if (!isOminousBottle(st)) continue;
             int lvl = getOminousLevel(st);
             if (bestSlot == -1 || lvl > bestLevel) {
@@ -221,10 +215,10 @@ private boolean isVictoryText(Text t) {
     }
 
     // Returns slot id for SWAP: inventory slots 9..35
-    private int selectBottleInventorySlotId(MinecraftClient client) {
+    private int selectBottleInventorySlotId(Minecraft client) {
         if (!PRIORITIZE_HIGHEST_LEVEL) {
             for (int slotId = 9; slotId <= 35; slotId++) {
-                ItemStack st = client.player.getInventory().getStack(slotId);
+                ItemStack st = client.player.getInventory().getItem(slotId);
                 if (isOminousBottle(st)) return slotId;
             }
             return -1;
@@ -233,7 +227,7 @@ private boolean isVictoryText(Text t) {
         int bestSlotId = -1;
         int bestLevel = -1;
         for (int slotId = 9; slotId <= 35; slotId++) {
-            ItemStack st = client.player.getInventory().getStack(slotId);
+            ItemStack st = client.player.getInventory().getItem(slotId);
             if (!isOminousBottle(st)) continue;
             int lvl = getOminousLevel(st);
             if (bestSlotId == -1 || lvl > bestLevel) {
@@ -244,9 +238,9 @@ private boolean isVictoryText(Text t) {
         return bestSlotId;
     }
 
-    private int firstEmptyHotbarSlot(MinecraftClient client) {
+    private int firstEmptyHotbarSlot(Minecraft client) {
         for (int i = 0; i < 9; i++) {
-            if (client.player.getInventory().getStack(i).isEmpty()) return i;
+            if (client.player.getInventory().getItem(i).isEmpty()) return i;
         }
         return -1;
     }
@@ -257,7 +251,7 @@ private boolean isVictoryText(Text t) {
 
     private int getOminousLevel(ItemStack st) {
         try {
-            OminousBottleAmplifierComponent comp = st.get(DataComponentTypes.OMINOUS_BOTTLE_AMPLIFIER);
+            OminousBottleAmplifier comp = st.get(DataComponents.OMINOUS_BOTTLE_AMPLIFIER);
             int amp = comp != null ? comp.value() : 0;
             return 1 + amp;
         } catch (Throwable ignored) {
@@ -265,7 +259,7 @@ private boolean isVictoryText(Text t) {
         }
     }
 
-    private void say(MinecraftClient client, String msg) {
-        if (client.player != null) client.player.sendMessage(Text.literal(msg), false);
+    private void say(Minecraft client, String msg) {
+        if (client.player != null) client.player.sendSystemMessage(Component.literal(msg));
     }
 }
